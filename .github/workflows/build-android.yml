@@ -11,12 +11,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check Android SDK
+      - name: Verify Android SDK
         run: |
+          set -eux
           java -version
           echo "JAVA_HOME=$JAVA_HOME"
           echo "ANDROID_HOME=$ANDROID_HOME"
+          command -v sdkmanager
           sdkmanager --version
 
-      - name: Install Android packages
-        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - name: Install platform tools only
+        run: |
+          set -eux
+          sdkmanager "platform-tools"
+          adb version
