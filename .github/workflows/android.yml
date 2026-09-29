@@ -23,21 +23,24 @@ jobs:
           ls -1 "$ANDROID_HOME/platforms"
           echo "Installed Build Tools:"
           ls -1 "$ANDROID_HOME/build-tools"
+          java -version
+          gradle --version
 
-      - name: Prepare Godot templates
+      - name: Install Godot Android Gradle template
         run: |
-          mkdir -p ~/.local/share/godot/export_templates
-          mkdir -p ~/.config
-          if [ -d /root/.config/godot ]; then
-            cp -r /root/.config/godot ~/.config/godot
-          fi
-          if [ -d /root/.local/share/godot/export_templates/4.4.1.stable ]; then
-            cp -r /root/.local/share/godot/export_templates/4.4.1.stable ~/.local/share/godot/export_templates/
-          fi
+          godot --headless --path . --install-android-build-template
 
       - name: Create temporary Android debug keystore
         run: |
-          keytool -genkeypair -v             -keystore /tmp/penflick-debug.keystore             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=Android,C=US"
+          keytool -genkeypair -v \
+            -keystore /tmp/penflick-debug.keystore \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Validate project
         run: |
