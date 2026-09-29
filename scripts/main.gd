@@ -44,8 +44,7 @@ var colors := [
 ]
 
 func _ready() -> void:
-    # Force the intended landscape presentation on Android and desktop.
-    DisplayServer.screen_set_orientation(DisplayServer.SCREEN_ORIENTATION_LANDSCAPE)
+    # Landscape is enforced by project settings/Android manifest.
     queue_redraw()
     _show_menu()
 
