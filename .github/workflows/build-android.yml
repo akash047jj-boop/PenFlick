@@ -72,7 +72,7 @@ jobs:
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
           EOF
-          cat "$HOME/.config/godot/editor_settings-4.tres"
+          cat "$HOME/.config/godot/editor_settings-4.4.tres"
 
       - name: Validate project
         run: |
