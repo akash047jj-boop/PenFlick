@@ -18,8 +18,14 @@ jobs:
           java -version
           echo "JAVA_HOME=$JAVA_HOME"
           echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager || true
-          command -v adb || true
+          command -v sdkmanager
+          command -v adb
+
+      - name: Install Android SDK packages
+        run: |
+          set -eux
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Install Godot 4.4.1
         run: |
@@ -30,6 +36,29 @@ jobs:
           unzip -q /tmp/godot.zip -d /tmp/godot
           sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
+
+      - name: Install Godot Android export templates
+        run: |
+          set -eux
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"             -o /tmp/templates.tpz
+          rm -rf /tmp/templates
+          mkdir -p /tmp/templates
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          cp -a /tmp/templates/templates/.             "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+
+      - name: Configure Godot Android paths
+        run: |
+          set -eux
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+[gd_resource type="EditorSettings" format=3]
+
+[resource]
+export/android/android_sdk_path = "$ANDROID_HOME"
+export/android/java_sdk_path = "$JAVA_HOME"
+EOF
 
       - name: Validate Godot project
         run: godot --headless --path . --editor --quit
