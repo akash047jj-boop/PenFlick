@@ -18,7 +18,11 @@ jobs:
       - name: Prepare Android SDK
         run: |
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "Installed Android SDK:"
+          ls -1 "$ANDROID_HOME/platforms"
+          echo "Installed Build Tools:"
+          ls -1 "$ANDROID_HOME/build-tools"
 
       - name: Prepare Godot templates
         run: |
@@ -47,6 +51,8 @@ jobs:
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
+          test -s build/PenFlick-debug.apk
+          ls -lh build/PenFlick-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
