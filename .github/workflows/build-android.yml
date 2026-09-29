@@ -79,6 +79,15 @@ jobs:
           set -eux
           godot --headless --path . --editor --quit
 
+      - name: Runtime script validation
+        run: |
+          set -euxo pipefail
+          godot --headless --path . --quit-after 2 2>&1 | tee /tmp/godot-runtime.log
+          if grep -Eq "SCRIPT ERROR|Parse Error|Failed to load script" /tmp/godot-runtime.log; then
+            echo "Godot runtime validation found a script error."
+            exit 1
+          fi
+
       - name: Configure Android debug keystore
         run: |
           set -eux
