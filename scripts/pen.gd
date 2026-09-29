@@ -11,14 +11,23 @@ var last_hit_strength: float = 0.0
 var total_hits: int = 0
 var flick_contact_offset: Vector2 = Vector2.ZERO
 
+# Movement tuning: fast launches lose speed aggressively, while gentle
+# launches remain controllable. This gives a strong "flick and stop" feel.
+const BASE_LINEAR_DAMP := 0.42
+const MAX_SPEED_DAMP_BONUS := 4.8
+const BASE_ANGULAR_DAMP := 0.55
+const MAX_SPIN_DAMP_BONUS := 5.5
+const REFERENCE_SPEED := 1250.0
+const REFERENCE_SPIN := 12.0
+
 func setup(id: int, pname: String, color: Color) -> void:
     player_id = id
     player_name = pname
     pen_color = color
     mass = 1.0
     gravity_scale = 0.0
-    linear_damp = 0.95
-    angular_damp = 1.15
+    linear_damp = BASE_LINEAR_DAMP
+    angular_damp = BASE_ANGULAR_DAMP
     inertia = 0.62
     continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
     contact_monitor = true
@@ -27,8 +36,8 @@ func setup(id: int, pname: String, color: Color) -> void:
     center_of_mass = Vector2(0.0, 0.0)
 
     var material := PhysicsMaterial.new()
-    material.friction = 0.22
-    material.bounce = 0.42
+    material.friction = 0.78
+    material.bounce = 0.12
     physics_material_override = material
 
     var shape_node := CollisionShape2D.new()
@@ -52,6 +61,8 @@ func launch(direction: Vector2, strength: float, contact_offset: Vector2 = Vecto
     # Apply the flick at the player's chosen point on the pen. This creates
     # realistic rotation when the hit is away from the centre.
     apply_impulse(impulse, flick_contact_offset)
+    # Do not add a separate torque impulse here. The off-centre impulse
+    # already generates physically correct spin.
     queue_redraw()
 
 func _on_body_entered(body: Node) -> void:
@@ -80,13 +91,30 @@ func _on_body_entered(body: Node) -> void:
         var normal: Vector2 = to_other.normalized()
         var tangent: Vector2 = Vector2(-normal.y, normal.x)
         var tangential_speed: float = abs(relative_velocity.dot(tangent))
-        var spin: float = tangential_speed * 0.035 + impact_speed * 0.008
+        var spin: float = tangential_speed * 0.012 + impact_speed * 0.0025
         var side: float = sign(relative_velocity.dot(tangent))
         if side == 0.0:
             side = 1.0
         apply_torque_impulse(side * spin * mass)
 
     queue_redraw()
+
+func _physics_process(_delta: float) -> void:
+    if eliminated:
+        return
+
+    # Damping scales with current speed. A powerful flick starts fast and
+    # therefore brakes hard; as it slows, braking becomes gentler.
+    var speed_ratio: float = clampf(linear_velocity.length() / REFERENCE_SPEED, 0.0, 1.0)
+    var spin_ratio: float = clampf(absf(angular_velocity) / REFERENCE_SPIN, 0.0, 1.0)
+    linear_damp = BASE_LINEAR_DAMP + speed_ratio * MAX_SPEED_DAMP_BONUS
+    angular_damp = BASE_ANGULAR_DAMP + spin_ratio * MAX_SPIN_DAMP_BONUS
+
+    # Prevent tiny residual movement/spin from making pens jitter forever.
+    if linear_velocity.length() < 4.0:
+        linear_velocity = Vector2.ZERO
+    if absf(angular_velocity) < 0.08:
+        angular_velocity = 0.0
 
 func eliminate() -> void:
     if eliminated:
