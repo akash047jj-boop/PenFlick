@@ -29,6 +29,7 @@ func setup(id: int, pname: String, color: Color) -> void:
     shape.radius = pen_width * 0.5
     shape.height = pen_length
     shape_node.shape = shape
+    shape_node.rotation = PI * 0.5
     add_child(shape_node)
     queue_redraw()
 
