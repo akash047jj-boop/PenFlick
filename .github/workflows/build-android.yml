@@ -11,17 +11,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify Android SDK
+      - name: Install Android SDK locally
         run: |
           set -eux
-          java -version
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          command -v sdkmanager
-          sdkmanager --version
-
-      - name: Install platform tools only
-        run: |
-          set -eux
-          sdkmanager "platform-tools"
+          SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -L --fail --retry 5             "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"             -o /tmp/android-tools.zip
+          rm -rf /tmp/cmdline-tools
+          mkdir -p /tmp/cmdline-tools
+          unzip -q /tmp/android-tools.zip -d /tmp/cmdline-tools
+          mv /tmp/cmdline-tools/cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+          echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           adb version
+
+      - name: Install Godot
+        run: |
+          set -eux
+          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip"             -o /tmp/godot.zip
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
