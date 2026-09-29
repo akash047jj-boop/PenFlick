@@ -7,6 +7,7 @@ const MAX_FORCE := 1250.0
 const MIN_FORCE := 120.0
 const SETTLE_SPEED := 8.0
 const SETTLE_DELAY := 0.65
+const STRONG_HIT := 850.0
 
 var pens: Array[PenFlickPen] = []
 var active_player := 0
@@ -27,6 +28,11 @@ var force_label: Label
 var mode_label: Label
 var turn_label: Label
 var help_label: Label
+var spin_label: Label
+var pause_overlay: Control
+var match_hits := 0
+var match_flicks := 0
+var match_start_time := 0.0
 var menu_layer: CanvasLayer
 var game_layer: CanvasLayer
 
@@ -38,6 +44,8 @@ var colors := [
 ]
 
 func _ready() -> void:
+    # Force the intended landscape presentation on Android and desktop.
+    DisplayServer.screen_set_orientation(DisplayServer.SCREEN_ORIENTATION_LANDSCAPE)
     queue_redraw()
     _show_menu()
 
@@ -86,6 +94,11 @@ func _draw() -> void:
         draw_circle(aim_pen.global_position + dir * preview_len, 7.0, Color(1,1,1,0.6))
         draw_line(aim_pen.global_position, aim_current, Color(1,1,1,0.38), 3.0)
         draw_circle(aim_current, 9.0, Color(1,1,1,0.72))
+        # Visual spin cue: stronger when the pull is angled relative to the pen.
+        var pull_angle := absf(wrapf(dir.angle() - aim_pen.global_rotation, -PI, PI))
+        var spin_ratio := clampf(sinf(pull_angle), 0.0, 1.0) * strength_ratio
+        if spin_ratio > 0.05:
+            draw_arc(aim_pen.global_position, 24.0, -PI * 0.25, -PI * 0.25 + TAU * spin_ratio, 18, Color(0.39,0.85,0.54,0.72), 3.0)
 
 func _box(color: Color, radius: int) -> StyleBoxFlat:
     var box := StyleBoxFlat.new()
@@ -198,6 +211,9 @@ func _start_game(ai_mode: bool, count: int) -> void:
     turn_in_progress = false
     aiming = false
     settle_timer = 0.0
+    match_hits = 0
+    match_flicks = 0
+    match_start_time = Time.get_ticks_msec() / 1000.0
 
     if menu_layer:
         menu_layer.queue_free()
@@ -250,7 +266,22 @@ func _build_hud() -> void:
     force_label.add_theme_color_override("font_color", Color("#A9BBCB"))
     top.add_child(force_label)
 
+    spin_label = Label.new()
+    spin_label.position = Vector2(820, 40)
+    spin_label.size = Vector2(230, 18)
+    spin_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    spin_label.add_theme_font_size_override("font_size", 11)
+    spin_label.add_theme_color_override("font_color", Color("#39D98A"))
+    top.add_child(spin_label)
+
     var restart := Button.new()
+    var pause := Button.new()
+    pause.text = "PAUSE"
+    pause.position = Vector2(980, 11)
+    pause.size = Vector2(90, 40)
+    pause.pressed.connect(_toggle_pause)
+    top.add_child(pause)
+
     restart.text = "MENU"
     restart.position = Vector2(1080, 11)
     restart.size = Vector2(120, 40)
@@ -347,6 +378,7 @@ func _release_aim(point: Vector2) -> void:
     var direction := pull.normalized()
     aiming = false
     aim_pen.launch(direction, strength)
+    match_flicks += 1
     turn_in_progress = true
     settle_timer = 0.0
     queue_redraw()
@@ -359,6 +391,64 @@ func _physics_process(_delta: float) -> void:
         _ai_take_turn()
 
     _check_eliminations()
+    _update_hit_stats()
+
+func _update_hit_stats() -> void:
+    var hits := 0
+    for pen in pens:
+        hits += pen.total_hits
+    match_hits = hits
+
+func _toggle_pause() -> void:
+    if game_over:
+        return
+    get_tree().paused = not get_tree().paused
+    if get_tree().paused:
+        _show_pause_overlay()
+    elif pause_overlay:
+        pause_overlay.queue_free()
+        pause_overlay = null
+
+func _show_pause_overlay() -> void:
+    if pause_overlay:
+        return
+    pause_overlay = Control.new()
+    pause_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    pause_overlay.process_mode = Node.PROCESS_MODE_ALWAYS
+    game_layer.add_child(pause_overlay)
+    var shade := ColorRect.new()
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    shade.color = Color(0.02,0.04,0.06,0.86)
+    pause_overlay.add_child(shade)
+    var panel := Panel.new()
+    panel.position = Vector2(430, 235)
+    panel.size = Vector2(420, 250)
+    panel.add_theme_stylebox_override("panel", _box(Color("#111B25"), 24))
+    pause_overlay.add_child(panel)
+    var label := Label.new()
+    label.text = "PAUSED"
+    label.position = Vector2(30, 35)
+    label.size = Vector2(360, 60)
+    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label.add_theme_font_size_override("font_size", 40)
+    panel.add_child(label)
+    var resume := _menu_button("RESUME", Vector2(60, 120), Vector2(300, 55))
+    resume.process_mode = Node.PROCESS_MODE_ALWAYS
+    resume.pressed.connect(_toggle_pause)
+    panel.add_child(resume)
+    var menu := _menu_button("MAIN MENU", Vector2(60, 185), Vector2(300, 45))
+    menu.process_mode = Node.PROCESS_MODE_ALWAYS
+    menu.pressed.connect(func():
+        get_tree().paused = false
+        pause_overlay.queue_free()
+        pause_overlay = null
+        _clear_pens()
+        if game_layer:
+            game_layer.queue_free()
+            game_layer = null
+        _show_menu()
+    )
+    panel.add_child(menu)
 
 func _ai_take_turn() -> void:
     turn_in_progress = true
@@ -465,6 +555,8 @@ func _update_hud() -> void:
     turn_label.add_theme_color_override("font_color", colors[active_player])
     mode_label.text = ("VS AI" if vs_ai else str(player_count) + " PLAYER LOCAL")
     force_label.text = "POWER  •  DRAG DISTANCE"
+    if spin_label:
+        spin_label.text = "SPIN  •  ANGLE + IMPACT"
 
 func _show_winner(winner: int) -> void:
     if not game_layer:
@@ -497,7 +589,8 @@ func _show_winner(winner: int) -> void:
     panel.add_child(label)
 
     var sub := Label.new()
-    sub.text = "Last pen standing"
+    var elapsed := maxf(0.0, Time.get_ticks_msec() / 1000.0 - match_start_time)
+    sub.text = "Last pen standing  •  %d flicks  •  %d hits  •  %ds" % [match_flicks, match_hits, int(elapsed)]
     sub.position = Vector2(35, 125)
     sub.size = Vector2(480, 32)
     sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
