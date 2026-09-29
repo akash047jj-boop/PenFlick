@@ -58,6 +58,22 @@ jobs:
           cp "$TEMPLATE_ROOT"/android_release.apk "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
           ls -lh "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
 
+      - name: Configure Godot Android editor settings
+        run: |
+          set -eux
+          mkdir -p "$HOME/.config/godot"
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          [gd_resource type="EditorSettings" format=3]
+
+          [resource]
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          export/android/android_sdk_path = "/home/runner/android-sdk"
+          export/android/debug_keystore = "/home/runner/debug.keystore"
+          export/android/debug_keystore_user = "androiddebugkey"
+          export/android/debug_keystore_pass = "android"
+          EOF
+          cat "$HOME/.config/godot/editor_settings-4.tres"
+
       - name: Validate project
         run: |
           set -eux
@@ -81,12 +97,13 @@ jobs:
           sed -i 's|^keystore/release_user=.*$|keystore/release_user="androiddebugkey"|' export_presets.cfg
           sed -i 's|^keystore/release_password=.*$|keystore/release_password="android"|' export_presets.cfg
           grep -E '^keystore/(debug|release)' export_presets.cfg
+          keytool -list -keystore "$HOME/debug.keystore" -storepass android -alias androiddebugkey >/dev/null
 
       - name: Export debug APK
         run: |
           set -eux
           mkdir -p build
-          godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
+          godot --headless --verbose --path . --export-debug "Android" build/PenFlick-debug.apk
           test -s build/PenFlick-debug.apk
 
       - name: Upload APK
