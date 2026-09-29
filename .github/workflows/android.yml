@@ -7,70 +7,57 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.4.1
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-
-      - name: Set up Godot
-        uses: chickensoft-games/setup-godot@v2
-        with:
-          version: 4.4.1
-          use-dotnet: false
-
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android packages
-        run: |
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-
-      - name: Install Godot Android build template
+      - name: Prepare Android SDK
         run: |
           set -eux
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          curl -L --fail --retry 3             https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz             -o /tmp/templates.tpz
-          mkdir -p /tmp/templates
-          unzip -q /tmp/templates.tpz -d /tmp/templates
-          find /tmp/templates -type f -maxdepth 4 -print
-          cp -a /tmp/templates/templates/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip"
-          rm -rf android
-          mkdir -p android/build
-          unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d android/build
-          test -f android/build/build.gradle
-
-      - name: Configure Godot
+      - name: Install Godot export templates
         run: |
-          mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          set -eux
+          T="/root/.local/share/godot/export_templates/4.4.1.stable"
+          test -s "$T/android_debug.apk"
+          test -s "$T/android_release.apk"
+          echo "Android export templates:"
+          ls -lh "$T"
+
+      - name: Configure Godot Android paths
+        run: |
+          set -eux
+          mkdir -p /github/home/.config/godot
+          cat > /github/home/.config/godot/editor_settings-4.tres <<EOF
 [gd_resource type="EditorSettings" format=3]
 
 [resource]
 export/android/android_sdk_path = "$ANDROID_HOME"
-export/android/java_sdk_path = "$JAVA_HOME"
+export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
 EOF
 
       - name: Create debug keystore
         run: |
-          keytool -genkeypair -v             -keystore "$RUNNER_TEMP/penflick-debug.keystore"             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=Android,C=US"
+          set -eux
+          keytool -genkeypair -v             -keystore /tmp/penflick-debug.keystore             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Validate project
         run: godot --headless --path . --editor --quit
 
-      - name: Export APK
+      - name: Export debug APK
         env:
-          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ runner.temp }}/penflick-debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/penflick-debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
-        timeout-minutes: 20
+        timeout-minutes: 15
         run: |
+          set -eux
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
           test -s build/PenFlick-debug.apk
