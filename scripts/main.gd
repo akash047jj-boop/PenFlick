@@ -95,7 +95,7 @@ func _draw() -> void:
         draw_circle(aim_current, 9.0, Color(1,1,1,0.72))
         # Visual spin cue: stronger when the pull is angled relative to the pen.
         var pull_angle := absf(wrapf(dir.angle() - aim_pen.global_rotation, -PI, PI))
-        var spin_ratio := clampf(sinf(pull_angle), 0.0, 1.0) * strength_ratio
+        var spin_ratio := clampf(sin(pull_angle), 0.0, 1.0) * strength_ratio
         if spin_ratio > 0.05:
             draw_arc(aim_pen.global_position, 24.0, -PI * 0.25, -PI * 0.25 + TAU * spin_ratio, 18, Color(0.39,0.85,0.54,0.72), 3.0)
 
