@@ -56,19 +56,19 @@ func _on_body_entered(body: Node) -> void:
         return
 
     total_hits += 1
-    var relative_velocity := linear_velocity - other.linear_velocity
-    var impact_speed := relative_velocity.length()
+    var relative_velocity: Vector2 = linear_velocity - other.linear_velocity
+    var impact_speed: float = relative_velocity.length()
     last_hit_strength = impact_speed
 
     # Off-centre impacts naturally create angular momentum. The visible
     # centre dot represents the approximate centre of mass/contact region.
-    var to_other := other.global_position - global_position
+    var to_other: Vector2 = other.global_position - global_position
     if to_other.length() > 0.01:
-        var normal := to_other.normalized()
-        var tangent := Vector2(-normal.y, normal.x)
-        var tangential_speed := abs(relative_velocity.dot(tangent))
-        var spin := tangential_speed * 0.035 + impact_speed * 0.008
-        var side := sign(relative_velocity.dot(tangent))
+        var normal: Vector2 = to_other.normalized()
+        var tangent: Vector2 = Vector2(-normal.y, normal.x)
+        var tangential_speed: float = abs(relative_velocity.dot(tangent))
+        var spin: float = tangential_speed * 0.035 + impact_speed * 0.008
+        var side: float = sign(relative_velocity.dot(tangent))
         if side == 0.0:
             side = 1.0
         apply_torque_impulse(side * spin * mass)
