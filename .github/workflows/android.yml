@@ -24,7 +24,6 @@ jobs:
           echo "Installed Build Tools:"
           ls -1 "$ANDROID_HOME/build-tools"
           java -version
-          gradle --version
 
       - name: Install Godot Android Gradle template
         run: |
