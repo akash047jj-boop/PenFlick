@@ -403,11 +403,11 @@ func _edge_risk(p: Vector2) -> float:
     return 1.0 - clampf(d / 220.0, 0.0, 1.0)
 
 func _nearest_edge_direction(p: Vector2) -> Vector2:
-    var left := p.x - TABLE.position.x
-    var right := TABLE.end.x - p.x
-    var top := p.y - TABLE.position.y
-    var bottom := TABLE.end.y - p.y
-    var smallest := min(min(left, right), min(top, bottom))
+    var left: float = p.x - TABLE.position.x
+    var right: float = TABLE.end.x - p.x
+    var top: float = p.y - TABLE.position.y
+    var bottom: float = TABLE.end.y - p.y
+    var smallest: float = minf(minf(left, right), minf(top, bottom))
     if smallest == left:
         return Vector2(-1, 0)
     if smallest == right:
