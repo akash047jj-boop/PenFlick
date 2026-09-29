@@ -79,9 +79,9 @@ func _draw() -> void:
 
     if aiming and aim_pen and not aim_pen.eliminated:
         var pull := aim_start - aim_current
-        var strength_ratio := clamp(pull.length() / 230.0, 0.0, 1.0)
+        var strength_ratio: float = clampf(pull.length() / 230.0, 0.0, 1.0)
         var dir := pull.normalized() if pull.length() > 0.1 else Vector2.RIGHT
-        var preview_len := lerp(80.0, 330.0, strength_ratio)
+        var preview_len: float = lerpf(80.0, 330.0, strength_ratio)
         draw_dashed_line(aim_pen.global_position, aim_pen.global_position + dir * preview_len, Color(1,1,1,0.72), 4.0, 10.0)
         draw_circle(aim_pen.global_position + dir * preview_len, 7.0, Color(1,1,1,0.6))
         draw_line(aim_pen.global_position, aim_current, Color(1,1,1,0.38), 3.0)
@@ -163,8 +163,8 @@ func _show_player_picker() -> void:
     panel.add_child(title)
 
     for i in range(3):
-        var count := i + 2
-        var b := _menu_button(str(count) + " PLAYERS", Vector2(105, 125 + i * 82), Vector2(400, 62))
+        var count: int = i + 2
+        var b: Button = _menu_button(str(count) + " PLAYERS", Vector2(105, 125 + i * 82), Vector2(400, 62))
         b.pressed.connect(func(): _start_game(false, count))
         panel.add_child(b)
 
@@ -282,7 +282,7 @@ func _spawn_pens() -> void:
         positions = [Vector2(300, 245), Vector2(980, 245), Vector2(300, 520), Vector2(980, 520)]
 
     for i in range(player_count):
-        var pen := PenScene.new()
+        var pen: PenFlickPen = PenScene.new()
         add_child(pen)
         pen.setup(i, "Player " + str(i + 1), colors[i])
         pen.position = positions[i]
@@ -337,13 +337,13 @@ func _release_aim(point: Vector2) -> void:
         return
     aim_current = point
     var pull := aim_start - aim_current
-    var distance := clamp(pull.length(), 0.0, 230.0)
+    var distance: float = clampf(pull.length(), 0.0, 230.0)
     if distance < 18.0:
         aiming = false
         queue_redraw()
         return
 
-    var strength := lerp(MIN_FORCE, MAX_FORCE, distance / 230.0)
+    var strength: float = lerpf(MIN_FORCE, MAX_FORCE, distance / 230.0)
     var direction := pull.normalized()
     aiming = false
     aim_pen.launch(direction, strength)
@@ -368,20 +368,20 @@ func _ai_take_turn() -> void:
         turn_in_progress = false
         return
 
-    var shooter := pens[active_player]
+    var shooter: PenFlickPen = pens[active_player]
     var target := _choose_ai_target(shooter)
     if target == null:
         turn_in_progress = false
         return
 
     var to_target := target.global_position - shooter.global_position
-    var distance := to_target.length()
+    var distance: float = to_target.length()
     var direction := to_target.normalized()
     var edge_bias := _nearest_edge_direction(target.global_position)
     if distance > 300.0:
         direction = direction.lerp(edge_bias, 0.22).normalized()
 
-    var strength := clamp(560.0 + distance * 0.75, MIN_FORCE, MAX_FORCE)
+    var strength: float = clampf(560.0 + distance * 0.75, MIN_FORCE, MAX_FORCE)
     shooter.launch(direction, strength)
     settle_timer = 0.0
 
@@ -399,8 +399,8 @@ func _choose_ai_target(shooter: PenFlickPen) -> PenFlickPen:
     return best
 
 func _edge_risk(p: Vector2) -> float:
-    var d := min(min(p.x - TABLE.position.x, TABLE.end.x - p.x), min(p.y - TABLE.position.y, TABLE.end.y - p.y))
-    return 1.0 - clamp(d / 220.0, 0.0, 1.0)
+    var d: float = minf(minf(p.x - TABLE.position.x, TABLE.end.x - p.x), minf(p.y - TABLE.position.y, TABLE.end.y - p.y))
+    return 1.0 - clampf(d / 220.0, 0.0, 1.0)
 
 func _nearest_edge_direction(p: Vector2) -> Vector2:
     var left := p.x - TABLE.position.x
@@ -431,7 +431,7 @@ func _check_eliminations() -> void:
     for pen in pens:
         if pen.eliminated:
             continue
-        var p := pen.global_position
+        var p: Vector2 = pen.global_position
         if p.x < TABLE.position.x - 42 or p.x > TABLE.end.x + 42 or p.y < TABLE.position.y - 42 or p.y > TABLE.end.y + 42:
             pen.eliminate()
 
