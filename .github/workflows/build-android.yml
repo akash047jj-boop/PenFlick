@@ -11,27 +11,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Android SDK locally
+      - name: Install Android SDK
         run: |
           set -eux
           SDK_ROOT="$HOME/android-sdk"
           mkdir -p "$SDK_ROOT/cmdline-tools"
-          curl -L --fail --retry 5             "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip"             -o /tmp/android-tools.zip
-          rm -rf /tmp/cmdline-tools
+          curl -L --fail --retry 5 "https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip" -o /tmp/android-tools.zip
           mkdir -p /tmp/cmdline-tools
           unzip -q /tmp/android-tools.zip -d /tmp/cmdline-tools
           mv /tmp/cmdline-tools/cmdline-tools "$SDK_ROOT/cmdline-tools/latest"
+          export ANDROID_HOME="$SDK_ROOT"
+          export ANDROID_SDK_ROOT="$SDK_ROOT"
+          export PATH="$SDK_ROOT/cmdline-tools/latest/bin:$SDK_ROOT/platform-tools:$PATH"
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          adb version
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
-          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          adb version
 
-      - name: Install Godot
+      - name: Install Godot 4.4.1
         run: |
           set -eux
-          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip"             -o /tmp/godot.zip
+          curl -L --fail --retry 5 "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip" -o /tmp/godot.zip
           unzip -q /tmp/godot.zip -d /tmp/godot
           sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
+
+      - name: Install Android build template
+        run: |
+          set -eux
+          godot --headless --editor --quit --install-android-build-template
+
+      - name: Validate project
+        run: |
+          set -eux
+          godot --headless --path . --editor --quit
+
+      - name: Export debug APK
+        run: |
+          set -eux
+          mkdir -p build
+          godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
+          test -s build/PenFlick-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PenFlick-debug-apk
+          path: build/PenFlick-debug.apk
+          if-no-files-found: error
