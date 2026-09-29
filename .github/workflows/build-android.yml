@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Verify Android tools
         run: |
           set -eux
@@ -19,3 +20,16 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_HOME"
           command -v sdkmanager || true
           command -v adb || true
+
+      - name: Install Godot 4.4.1
+        run: |
+          set -eux
+          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip"             -o /tmp/godot.zip
+          rm -rf /tmp/godot
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
+          godot --version
+
+      - name: Validate Godot project
+        run: godot --headless --path . --editor --quit
