@@ -13,10 +13,10 @@ var flick_contact_offset: Vector2 = Vector2.ZERO
 
 # Movement tuning: fast launches lose speed aggressively, while gentle
 # launches remain controllable. This gives a strong "flick and stop" feel.
-const BASE_LINEAR_DAMP := 0.42
-const MAX_SPEED_DAMP_BONUS := 4.8
-const BASE_ANGULAR_DAMP := 0.55
-const MAX_SPIN_DAMP_BONUS := 5.5
+const BASE_LINEAR_DAMP := 0.30
+const MAX_SPEED_DAMP_BONUS := 8.5
+const BASE_ANGULAR_DAMP := 1.0
+const MAX_SPIN_DAMP_BONUS := 10.0
 const REFERENCE_SPEED := 1250.0
 const REFERENCE_SPIN := 12.0
 
@@ -91,7 +91,7 @@ func _on_body_entered(body: Node) -> void:
         var normal: Vector2 = to_other.normalized()
         var tangent: Vector2 = Vector2(-normal.y, normal.x)
         var tangential_speed: float = abs(relative_velocity.dot(tangent))
-        var spin: float = tangential_speed * 0.012 + impact_speed * 0.0025
+        var spin: float = tangential_speed * 0.006 + impact_speed * 0.00125
         var side: float = sign(relative_velocity.dot(tangent))
         if side == 0.0:
             side = 1.0
@@ -109,6 +109,14 @@ func _physics_process(_delta: float) -> void:
     var spin_ratio: float = clampf(absf(angular_velocity) / REFERENCE_SPIN, 0.0, 1.0)
     linear_damp = BASE_LINEAR_DAMP + speed_ratio * MAX_SPEED_DAMP_BONUS
     angular_damp = BASE_ANGULAR_DAMP + spin_ratio * MAX_SPIN_DAMP_BONUS
+
+    # Once the pen is almost stopped, finish the braking decisively rather
+    # than allowing a long low-speed slide.
+    var stop_speed: float = 28.0
+    if linear_velocity.length() < stop_speed:
+        linear_velocity = linear_velocity.move_toward(Vector2.ZERO, 180.0 * _delta)
+    if absf(angular_velocity) < 0.75:
+        angular_velocity = move_toward(angular_velocity, 0.0, 6.0 * _delta)
 
     # Prevent tiny residual movement/spin from making pens jitter forever.
     if linear_velocity.length() < 4.0:
