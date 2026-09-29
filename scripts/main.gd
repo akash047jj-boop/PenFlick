@@ -21,6 +21,7 @@ var aim_start := Vector2.ZERO
 var aim_current := Vector2.ZERO
 var aiming := false
 var aim_pen: PenFlickPen
+var aim_contact_local := Vector2.ZERO
 
 var title_label: Label
 var status_label: Label
@@ -91,8 +92,11 @@ func _draw() -> void:
         var preview_len: float = lerpf(80.0, 330.0, strength_ratio)
         draw_dashed_line(aim_pen.global_position, aim_pen.global_position + dir * preview_len, Color(1,1,1,0.72), 4.0, 10.0)
         draw_circle(aim_pen.global_position + dir * preview_len, 7.0, Color(1,1,1,0.6))
-        draw_line(aim_pen.global_position, aim_current, Color(1,1,1,0.38), 3.0)
+        var contact_world: Vector2 = aim_pen.to_global(aim_contact_local)
+        draw_line(contact_world, aim_current, Color(1,1,1,0.38), 3.0)
+        draw_circle(contact_world, 8.0, Color(0.39,0.85,0.54,0.95))
         draw_circle(aim_current, 9.0, Color(1,1,1,0.72))
+        draw_string(ThemeDB.fallback_font, contact_world + Vector2(-42, -16), "FLICK HERE", HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(1,1,1,0.75))
         # Visual spin cue: stronger when the pull is angled relative to the pen.
         var pull_angle := absf(wrapf(dir.angle() - aim_pen.global_rotation, -PI, PI))
         var spin_ratio := clampf(sin(pull_angle), 0.0, 1.0) * strength_ratio
@@ -358,8 +362,18 @@ func _begin_aim(point: Vector2) -> void:
         return
     aiming = true
     aim_pen = pen
-    aim_start = pen.global_position
+    # The player chooses the exact contact point by touching anywhere along
+    # the pen. Project the touch into the pen's local space so the offset
+    # stays attached to the pen when it rotates.
+    var local_touch: Vector2 = pen.to_local(point)
+    aim_contact_local = Vector2(
+        clampf(local_touch.x, -pen.pen_length * 0.42, pen.pen_length * 0.42),
+        clampf(local_touch.y, -pen.pen_width * 0.35, pen.pen_width * 0.35)
+    )
+    aim_start = pen.to_global(aim_contact_local)
     aim_current = point
+    pen.flick_contact_offset = aim_contact_local
+    pen.queue_redraw()
     queue_redraw()
 
 func _release_aim(point: Vector2) -> void:
@@ -376,7 +390,7 @@ func _release_aim(point: Vector2) -> void:
     var strength: float = lerpf(MIN_FORCE, MAX_FORCE, distance / 230.0)
     var direction := pull.normalized()
     aiming = false
-    aim_pen.launch(direction, strength)
+    aim_pen.launch(direction, strength, aim_contact_local)
     match_flicks += 1
     turn_in_progress = true
     settle_timer = 0.0
@@ -471,7 +485,9 @@ func _ai_take_turn() -> void:
         direction = direction.lerp(edge_bias, 0.22).normalized()
 
     var strength: float = clampf(560.0 + distance * 0.75, MIN_FORCE, MAX_FORCE)
-    shooter.launch(direction, strength)
+    # AI also varies its flick point so it does not always produce centre hits.
+    var ai_contact := Vector2(randf_range(-shooter.pen_length * 0.30, shooter.pen_length * 0.30), 0.0)
+    shooter.launch(direction, strength, ai_contact)
     settle_timer = 0.0
 
 func _choose_ai_target(shooter: PenFlickPen) -> PenFlickPen:
