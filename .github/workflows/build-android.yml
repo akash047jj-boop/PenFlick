@@ -77,7 +77,10 @@ jobs:
           sed -i 's|^keystore/debug=.*$|keystore/debug="/home/runner/debug.keystore"|' export_presets.cfg
           sed -i 's|^keystore/debug_user=.*$|keystore/debug_user="androiddebugkey"|' export_presets.cfg
           sed -i 's|^keystore/debug_password=.*$|keystore/debug_password="android"|' export_presets.cfg
-          grep -E '^keystore/debug' export_presets.cfg
+          sed -i 's|^keystore/release=.*$|keystore/release="/home/runner/debug.keystore"|' export_presets.cfg
+          sed -i 's|^keystore/release_user=.*$|keystore/release_user="androiddebugkey"|' export_presets.cfg
+          sed -i 's|^keystore/release_password=.*$|keystore/release_password="android"|' export_presets.cfg
+          grep -E '^keystore/(debug|release)' export_presets.cfg
 
       - name: Export debug APK
         run: |
