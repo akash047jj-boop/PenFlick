@@ -25,21 +25,17 @@ jobs:
           ls -1 "$ANDROID_HOME/build-tools"
           java -version
 
-      - name: Install Godot Android Gradle template
+      - name: Check bundled Godot Android template
         run: |
-          godot --headless --path . --install-android-build-template
+          echo "Godot version:"
+          godot --version
+          echo "Checking installed export templates:"
+          find /root/.local/share/godot/export_templates -maxdepth 3 -type f 2>/dev/null | head -50 || true
+          find /github/home/.local/share/godot/export_templates -maxdepth 3 -type f 2>/dev/null | head -50 || true
 
       - name: Create temporary Android debug keystore
         run: |
-          keytool -genkeypair -v \
-            -keystore /tmp/penflick-debug.keystore \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Android Debug,O=Android,C=US"
+          keytool -genkeypair -v             -keystore /tmp/penflick-debug.keystore             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Validate project
         run: |
@@ -50,6 +46,7 @@ jobs:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/penflick-debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        timeout-minutes: 10
         run: |
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
