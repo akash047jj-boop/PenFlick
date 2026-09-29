@@ -49,9 +49,18 @@ jobs:
       - name: Install Godot Android build template
         run: |
           set -eux
-          godot --headless --editor --quit --install-android-build-template
-          test -d "$HOME/.local/share/godot/export_templates/4.4.1.stable/android/build"
-          find "$HOME/.local/share/godot/export_templates/4.4.1.stable/android/build" -maxdepth 2 -type f | head -20
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          mkdir -p "$TEMPLATE_DIR/android"
+          curl -L --fail --retry 5 "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_android_source.zip" -o /tmp/android_source.zip
+          rm -rf /tmp/android_source
+          mkdir -p /tmp/android_source
+          unzip -q /tmp/android_source.zip -d /tmp/android_source
+          BUILD_DIR=$(find /tmp/android_source -type d -path '*/android/build' | head -n 1)
+          test -n "$BUILD_DIR"
+          rm -rf "$TEMPLATE_DIR/android/build"
+          cp -a "$BUILD_DIR" "$TEMPLATE_DIR/android/build"
+          test -f "$TEMPLATE_DIR/android/build/build.gradle"
+          find "$TEMPLATE_DIR/android/build" -maxdepth 2 -type f | head -20
 
       - name: Install Godot export templates
         run: |
