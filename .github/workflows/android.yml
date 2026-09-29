@@ -3,88 +3,68 @@ name: Build PenFlick Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-24.04
+    container:
+      image: barichello/godot-ci:4.4.1
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Godot 4.4.1 and Android prerequisites
-        shell: bash
-        run: |
-          set -euxo pipefail
-          sudo apt-get update
-          sudo apt-get install -y unzip openjdk-17-jdk wget
-
-          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_linux.x86_64.zip -O /tmp/godot.zip
-          unzip -q /tmp/godot.zip -d /tmp/godot
-          sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
-
-          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O /tmp/templates.tpz
-          unzip -q /tmp/templates.tpz -d /tmp/templates
-          find /tmp/templates -type f -maxdepth 3 -print
-          cp -a /tmp/templates/templates/. "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
-
-          echo "Godot:"
-          godot --version
-          echo "Templates:"
-          ls -lh "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-
       - name: Prepare Android SDK
-        shell: bash
         run: |
-          set -euxo pipefail
-          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | head -n 1)"
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+          set -e
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          JAVA_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v java)")")")"
+          echo "JAVA_HOME=$JAVA_HOME" >> "$GITHUB_ENV"
 
-      - name: Install Godot Android Gradle project
-        shell: bash
+      - name: Install Android template
         run: |
-          set -euxo pipefail
-          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip"
+          set -e
+          T="/root/.local/share/godot/export_templates/4.4.1.stable"
+          test -s "$T/android_source.zip"
           rm -rf android
           mkdir -p android/build
-          unzip -q "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_source.zip" -d android/build
+          unzip -q "$T/android_source.zip" -d android/build
           if [ ! -f android/build/build.gradle ]; then
-            echo "Unexpected android_source.zip layout:"
+            echo "Template layout:"
             find android/build -maxdepth 4 -type f | sort | head -100
             exit 1
           fi
 
-          mkdir -p "$HOME/.config/godot"
-          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+      - name: Configure Godot
+        run: |
+          set -e
+          mkdir -p /github/home/.config/godot
+          cat > /github/home/.config/godot/editor_settings-4.tres <<EOF
 [gd_resource type="EditorSettings" format=3]
 
 [resource]
 export/android/android_sdk_path = "$ANDROID_HOME"
-export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+export/android/java_sdk_path = "$JAVA_HOME"
 EOF
 
-      - name: Create temporary Android debug keystore
-        shell: bash
+      - name: Create debug keystore
         run: |
-          set -euxo pipefail
           keytool -genkeypair -v             -keystore /tmp/penflick-debug.keystore             -storepass android             -alias androiddebugkey             -keypass android             -keyalg RSA             -keysize 2048             -validity 10000             -dname "CN=Android Debug,O=Android,C=US"
 
       - name: Validate project
-        run: |
-          godot --headless --path . --editor --quit
+        run: godot --headless --path . --editor --quit
 
-      - name: Export debug APK
+      - name: Export APK
         env:
           GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /tmp/penflick-debug.keystore
           GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
           GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
         timeout-minutes: 15
         run: |
-          set -euxo pipefail
+          set -e
           mkdir -p build
           godot --headless --path . --export-debug "Android" build/PenFlick-debug.apk
           test -s build/PenFlick-debug.apk
