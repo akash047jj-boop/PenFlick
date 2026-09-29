@@ -7,6 +7,8 @@ var pen_color: Color = Color.WHITE
 var eliminated: bool = false
 var pen_length: float = 96.0
 var pen_width: float = 18.0
+var last_hit_strength: float = 0.0
+var total_hits: int = 0
 
 func setup(id: int, pname: String, color: Color) -> void:
     player_id = id
@@ -14,14 +16,18 @@ func setup(id: int, pname: String, color: Color) -> void:
     pen_color = color
     mass = 1.0
     gravity_scale = 0.0
-    linear_damp = 1.8
-    angular_damp = 2.8
+    linear_damp = 1.55
+    angular_damp = 1.65
+    inertia = 0.62
     continuous_cd = RigidBody2D.CCD_MODE_CAST_SHAPE
     contact_monitor = true
-    max_contacts_reported = 8
+    max_contacts_reported = 12
+    center_of_mass_mode = RigidBody2D.CENTER_OF_MASS_MODE_CUSTOM
+    center_of_mass = Vector2(0.0, 0.0)
+
     var material := PhysicsMaterial.new()
-    material.friction = 0.72
-    material.bounce = 0.16
+    material.friction = 0.58
+    material.bounce = 0.22
     physics_material_override = material
 
     var shape_node := CollisionShape2D.new()
@@ -31,12 +37,43 @@ func setup(id: int, pname: String, color: Color) -> void:
     shape_node.shape = shape
     shape_node.rotation = PI * 0.5
     add_child(shape_node)
+
+    body_entered.connect(_on_body_entered)
     queue_redraw()
 
 func launch(direction: Vector2, strength: float) -> void:
     sleeping = false
-    apply_central_impulse(direction.normalized() * strength)
-    apply_torque_impulse(direction.angle() * strength * 0.006)
+    var impulse := direction.normalized() * strength
+    apply_central_impulse(impulse)
+    # A tiny initial roll makes the pen feel physical without overpowering
+    # the collision-generated torque.
+    apply_torque_impulse(strength * 0.0018 * direction.angle())
+    queue_redraw()
+
+func _on_body_entered(body: Node) -> void:
+    var other := body as PenFlickPen
+    if other == null or other.eliminated:
+        return
+
+    total_hits += 1
+    var relative_velocity := linear_velocity - other.linear_velocity
+    var impact_speed := relative_velocity.length()
+    last_hit_strength = impact_speed
+
+    # Off-centre impacts naturally create angular momentum. The visible
+    # centre dot represents the approximate centre of mass/contact region.
+    var to_other := other.global_position - global_position
+    if to_other.length() > 0.01:
+        var normal := to_other.normalized()
+        var tangent := Vector2(-normal.y, normal.x)
+        var tangential_speed := abs(relative_velocity.dot(tangent))
+        var spin := tangential_speed * 0.035 + impact_speed * 0.008
+        var side := sign(relative_velocity.dot(tangent))
+        if side == 0.0:
+            side = 1.0
+        apply_torque_impulse(side * spin * mass)
+
+    queue_redraw()
 
 func eliminate() -> void:
     if eliminated:
@@ -65,6 +102,7 @@ func _draw() -> void:
 
     if not eliminated:
         draw_circle(Vector2.ZERO, 5.0, Color(1,1,1,0.75))
+        draw_circle(Vector2.ZERO, 9.0, Color(1,1,1,0.08), false, 2.0)
 
 func _rounded_box(color: Color, radius: float) -> StyleBoxFlat:
     var box := StyleBoxFlat.new()
