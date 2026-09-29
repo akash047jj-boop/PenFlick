@@ -1,0 +1,14 @@
+# Godot
+.godot/
+.import/
+export.cfg
+*.tmp
+*.log
+
+# Build output
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
