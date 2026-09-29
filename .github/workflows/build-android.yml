@@ -31,6 +31,13 @@ jobs:
           echo "$SDK_ROOT/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
           echo "$SDK_ROOT/platform-tools" >> "$GITHUB_PATH"
 
+      - name: Install Java 17
+        run: |
+          set -eux
+          sudo apt-get update
+          sudo apt-get install -y openjdk-17-jdk
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> "$GITHUB_ENV"
+
       - name: Install Godot 4.4.1
         run: |
           set -eux
@@ -39,11 +46,18 @@ jobs:
           sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
 
+      - name: Install Godot Android build template
+        run: |
+          set -eux
+          godot --headless --editor --quit --install-android-build-template
+          test -d "$HOME/.local/share/godot/export_templates/4.4.1.stable/android/build"
+          find "$HOME/.local/share/godot/export_templates/4.4.1.stable/android/build" -maxdepth 2 -type f | head -20
+
       - name: Install Godot export templates
         run: |
           set -eux
           mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
-          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"             -o /tmp/templates.tpz
+          curl -L --fail --retry 5 "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz" -o /tmp/templates.tpz
           unzip -q /tmp/templates.tpz -d /tmp/templates
           TEMPLATE_ROOT=$(find /tmp/templates -type f -name 'android_debug.apk' -printf '%h' | head -n 1)
           test -n "$TEMPLATE_ROOT"
