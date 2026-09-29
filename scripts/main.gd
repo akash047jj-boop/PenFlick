@@ -38,7 +38,6 @@ var colors := [
 ]
 
 func _ready() -> void:
-    get_viewport().set_embedding_subwindows(false)
     queue_redraw()
     _show_menu()
 
