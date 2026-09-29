@@ -39,10 +39,17 @@ jobs:
           sudo install -m 0755 /tmp/godot/Godot_v4.4.1-stable_linux.x86_64 /usr/local/bin/godot
           godot --version
 
-      - name: Install Android build template
+      - name: Install Godot export templates
         run: |
           set -eux
-          godot --headless --editor --quit --install-android-build-template
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          curl -L --fail --retry 5             "https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz"             -o /tmp/templates.tpz
+          unzip -q /tmp/templates.tpz -d /tmp/templates
+          TEMPLATE_ROOT=$(find /tmp/templates -type f -name 'android_debug.apk' -printf '%h' | head -n 1)
+          test -n "$TEMPLATE_ROOT"
+          cp "$TEMPLATE_ROOT"/android_debug.apk "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          cp "$TEMPLATE_ROOT"/android_release.apk "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          ls -lh "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
 
       - name: Validate project
         run: |
